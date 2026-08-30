@@ -1,0 +1,53 @@
+name: Gemini Test Cron
+
+on:
+#   schedule:
+#     # Run every 4 hours, same as production
+#     # - cron: '0 */4 * * *'  # Paused because the main bot is now using Gemini too
+  workflow_dispatch: # allow manual triggering
+
+jobs:
+  run-gemini-test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to commit the updated DB and CSV back to the repo
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Gemini Test Bot
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # We need Alpaca and OKX keys here as well if we are fetching live equity
+          # (as the runner calls fetch_live_equity to keep sizing comparable)
+          ALPACA_API_KEY: ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_API_SECRET: ${{ secrets.ALPACA_API_SECRET }}
+          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
+          OKX_SECRET_KEY: ${{ secrets.OKX_SECRET_KEY }}
+          OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
+        run: |
+          python -m src.run_gemini_test
+
+      - name: Commit and Push Changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # Only commit the test outputs
+          git add gemini_test.db gemini_test_signals.csv || true
+          
+          # Only commit if there are changes
+          git commit -m "chore: Update gemini 7-day test logs [skip ci]" || echo "No changes to commit"
+          git push

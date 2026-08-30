@@ -1,0 +1,42 @@
+# ─── Account ────────────────────────────────────────────────────────────────
+account_equity_usd: 100.0
+live_execution: false
+
+# ─── Risk Controls ──────────────────────────────────────────────────────────
+circuit_breaker_loss_pct: 5.0      # stop trading if daily realized loss > this % of equity
+max_risk_pct: 2.0                  # max % of equity to risk on a single trade (loss cap)
+max_absolute_position_pct: 30.0    # hard cap on total position size % of equity
+min_confidence: 0.55               # default to hold if confidence is below this threshold
+
+# ─── Model ──────────────────────────────────────────────────────────────────
+model: "claude-haiku-4-5-20251001"
+signal_provider: "gemini"
+gemini_model: "gemini-3.6-flash"
+max_tokens: 4096
+
+# ─── Symbols ────────────────────────────────────────────────────────────────
+symbols:
+  - symbol: "BTC-USD"
+    asset_class: "crypto"
+  - symbol: "ETH-USD"
+    asset_class: "crypto"
+  - symbol: "SOL-USD"
+    asset_class: "crypto"
+  - symbol: "AAPL"
+    asset_class: "equity"
+  - symbol: "NVDA"
+    asset_class: "equity"
+
+# ─── Scheduling ─────────────────────────────────────────────────────────────
+# crypto_interval_hours: how often to run the signal loop for crypto symbols
+# equity runs only during US market hours (09:30–16:00 ET, Mon–Fri)
+crypto_interval_hours: 4
+equity_interval_hours: 4
+
+# ─── Data ───────────────────────────────────────────────────────────────────
+# How many days of OHLCV history to pull for indicator computation
+ohlcv_period: "120d"
+rsi_period: 14
+sma_short: 20
+sma_long: 50
+max_headlines: 6
