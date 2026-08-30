@@ -27,7 +27,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from .models import SignalInput, SignalOutput, TradeSignal, ExecutionResult
+from .models import SignalInput, SignalOutput, TradeSignal, ExecutionResult, ExistingPosition
 
 logger = logging.getLogger(__name__)
 
