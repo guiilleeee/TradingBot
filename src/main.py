@@ -163,11 +163,15 @@ def main() -> None:
             logger.error("Symbol '%s' not found in config.yaml", args.symbol)
             sys.exit(1)
 
-    # Fetch real live equity or fallback to config
-    fallback_equity = config.get("account_equity_usd", 500.0)
-    live_equity = fetch_live_equity(fallback_equity)
-
     is_live = config.get("live_execution", False)
+    fallback_equity = config.get("account_equity_usd", 100.0)
+
+    # Fetch real live equity or compute simulated equity
+    if is_live:
+        equity = fetch_live_equity(fallback_equity)
+    else:
+        equity = fallback_equity + bot_logger.get_all_time_realized_pnl()
+
     auto_closed_symbols = set()
 
     # Pre-cycle sweep for simulated stop-loss/take-profit
@@ -191,12 +195,16 @@ def main() -> None:
                 
                 bot_logger.record_pnl(sym, pnl)
                 bot_logger.close_simulated_position(sym)
-                bot_logger.log_auto_close_signal(sym, reason, curr_price, pos["qty"], pnl)
+                
+                # Update local equity so this closure reflects in the signal log
+                equity += pnl
+                bot_logger.log_auto_close_signal(sym, reason, curr_price, pos["qty"], pnl, equity)
+                
                 auto_closed_symbols.add(sym)
 
     logger.info("Starting signal cycle for %d symbols...", len(symbols_to_run))
     for sym_data in symbols_to_run:
-        process_symbol(sym_data["symbol"], sym_data["asset_class"], config, live_equity, bot_logger, auto_closed_symbols)
+        process_symbol(sym_data["symbol"], sym_data["asset_class"], config, equity, bot_logger, auto_closed_symbols)
     
     logger.info("Cycle complete. Exporting CSV logs for dashboard...")
     bot_logger.export_signals_csv(Path("signals.csv"))

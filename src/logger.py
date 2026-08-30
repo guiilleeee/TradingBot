@@ -121,14 +121,14 @@ class BotLogger:
             final_signal.override_reason or "none",
         )
 
-    def log_auto_close_signal(self, symbol: str, reason: str, price: float, qty: float, pnl: float) -> None:
+    def log_auto_close_signal(self, symbol: str, reason: str, price: float, qty: float, pnl: float, equity: float) -> None:
         """Log a synthetic 'sell' signal for auto-closed positions so the dashboard sees it."""
         ts = datetime.now(timezone.utc).isoformat()
         
         # Build minimal mock JSONs for the dashboard
-        signal_input_json = json.dumps({"symbol": symbol, "current_price": price})
+        signal_input_json = json.dumps({"symbol": symbol, "current_price": price, "account_equity_usd": equity})
         raw_output_json = json.dumps({"action": "sell", "reasoning": reason})
-        final_signal_json = json.dumps({"action": "sell", "symbol": symbol, "override_reason": reason})
+        final_signal_json = json.dumps({"action": "sell", "symbol": symbol, "override_reason": reason, "reasoning": reason})
         exec_result_json = json.dumps({"status": "success", "realized_pnl_usd": pnl, "qty": qty, "message": reason})
         
         with self._connect() as conn:
@@ -153,6 +153,14 @@ class BotLogger:
                 (ts, symbol, realized_pnl_usd),
             )
         logger.info("Recorded P&L for %s: %.2f USD", symbol, realized_pnl_usd)
+
+    def get_all_time_realized_pnl(self) -> float:
+        """Return the sum of all realized P&L across all time."""
+        with self._connect() as conn:
+            row = conn.execute("SELECT SUM(realized_pnl_usd) as total FROM pnl").fetchone()
+            if row and row["total"] is not None:
+                return float(row["total"])
+            return 0.0
 
     def get_today_realized_loss_pct(self, account_equity_usd: float) -> float:
         """

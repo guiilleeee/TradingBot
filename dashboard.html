@@ -1008,14 +1008,29 @@
                 if (fs.action === 'buy') actionColor = 'text-gain';
                 if (fs.action === 'sell') actionColor = 'text-loss';
 
+                let sizeDisplay = '-';
+                if (fs.position_size_pct) {
+                    sizeDisplay = fs.position_size_pct.toFixed(1) + '%';
+                    const eq = r.signal_input_data?.account_equity_usd;
+                    if (eq) {
+                        const eurAmt = (fs.position_size_pct / 100) * eq;
+                        sizeDisplay += ` <span style="font-size:0.8rem; color:#7A8291;">(~${eurAmt.toFixed(2)}€)</span>`;
+                    }
+                }
+
                 const delay = i * 0.02; // Stagger
                 html += `<tr class="${rowClass}" style="animation-delay: ${delay}s">
                     <td data-label="Hora" class="text-muted" style="font-size:0.8rem">${ts}</td>
                     <td data-label="Símbol" style="color:var(--accent-violet); font-weight:bold;">${r.symbol}</td>
                     <td data-label="Acció del model" class="text-muted">${fs.raw_action || '-'}</td>
                     <td data-label="Acció final" class="${actionColor}" style="font-weight:bold">${fs.action.toUpperCase()}</td>
-                    <td data-label="Mida %">${fs.position_size_pct ? fs.position_size_pct.toFixed(1) + '%' : '-'}</td>
-                    <td data-label="Raonament" style="font-family:'Inter',sans-serif; font-size:0.875rem; max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${fs.reasoning}">${fs.reasoning}</td>
+                    <td data-label="Mida %">${sizeDisplay}</td>
+                    <td data-label="Raonament" 
+                        style="font-family:'Inter',sans-serif; font-size:0.875rem; max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer;" 
+                        onclick="this.style.whiteSpace = this.style.whiteSpace === 'nowrap' ? 'normal' : 'nowrap';" 
+                        title="Fes clic per expandir/col·lapsar">
+                        ${fs.reasoning || '-'}
+                    </td>
                 </tr>`;
             });
             
