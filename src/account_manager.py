@@ -67,11 +67,16 @@ def get_okx_equity() -> Optional[float]:
         
         # 'info' holds the raw response, which for OKX v5 contains 'totalEq'
         total_eq = 0.0
-        if "info" in balance and "data" in balance["info"] and len(balance["info"]["data"]) > 0:
-            total_eq_str = balance["info"]["data"][0].get("totalEq", "0.0")
-            total_eq = float(total_eq_str)
+        info = balance.get("info")
+        if isinstance(info, dict):
+            data = info.get("data")
+            if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+                total_eq_str = data[0].get("totalEq", "0.0")
+                total_eq = float(total_eq_str)
+            else:
+                logger.warning("Could not parse OKX balance data list structure. Defaulting to 0.0.")
         else:
-            logger.warning("Could not parse OKX balance structure. Defaulting to 0.0.")
+            logger.warning("Could not parse OKX balance info structure. Defaulting to 0.0.")
 
         logger.info("Fetched OKX live equity: $%.2f", total_eq)
         return total_eq

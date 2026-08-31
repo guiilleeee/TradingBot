@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Optional
+from typing import Optional, Any
 
 import anthropic
 from dotenv import load_dotenv
@@ -39,6 +39,8 @@ HARD RULES (never violate these):
 5. Treat news/headlines as directional bias only, never as certainty.
 6. State your confidence honestly. Most days the right answer is "hold".
 7. Never assume leverage is available. All position sizing is spot, unencumbered.
+8. Write the "reasoning" field in Catalan, regardless of what language the input data or
+   headlines are in. Every other field (action, symbol, etc.) stays in its required format.
 
 INPUT FORMAT (JSON):
 {
@@ -90,6 +92,7 @@ def generate_signal(
     model: str = "claude-haiku-4-5-20251001",
     max_tokens: int = 512,
     client: Optional[anthropic.Anthropic] = None,
+    system_prompt: str = SYSTEM_PROMPT,
 ) -> SignalOutput:
     """
     Send signal_input to Claude and return a validated SignalOutput.
@@ -107,12 +110,14 @@ def generate_signal(
     logger.info("Calling Claude (%s) for %s …", model, signal_input.symbol)
     logger.debug("Payload:\n%s", user_message)
 
-    response = client.messages.create(
+    kwargs: Any = {"temperature": 0.2}
+    create_fn: Any = client.messages.create
+    response = create_fn(
         model=model,
         max_tokens=max_tokens,
-        temperature=0.2,
-        system=SYSTEM_PROMPT,
+        system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
+        **kwargs,
     )
 
     raw_text = response.content[0].text.strip()

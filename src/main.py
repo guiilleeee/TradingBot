@@ -47,7 +47,6 @@ def process_symbol(symbol: str, asset_class: str, config: dict[str, Any], equity
     cb_threshold = config["circuit_breaker_loss_pct"]
     max_risk = config.get("max_risk_pct", 2.0)
     max_abs_pos = config.get("max_absolute_position_pct", 30.0)
-    min_conf = config.get("min_confidence", 0.55)
 
     if symbol in auto_closed_symbols:
         logger.info("Skipping model call for %s: auto-closed this cycle.", symbol)
@@ -64,6 +63,8 @@ def process_symbol(symbol: str, asset_class: str, config: dict[str, Any], equity
             return
 
         is_live = config.get("live_execution", False)
+
+        min_conf = config.get("min_confidence_live", 0.55) if is_live else config.get("min_confidence_simulation", 0.40)
 
         # 1.5 Fetch real position from broker
         existing_position = fetch_existing_position(symbol, asset_class, is_live, bot_logger)
@@ -82,18 +83,36 @@ def process_symbol(symbol: str, asset_class: str, config: dict[str, Any], equity
         )
 
         # 3. Ask Model
+        from .signal_generator import SYSTEM_PROMPT
+        effective_system_prompt = SYSTEM_PROMPT
+        if not is_live:
+            effective_system_prompt += (
+                "\n\nSIMULATION MODE — ADDITIONAL GUIDANCE (this block only applies when no real capital is\n"
+                "at risk):\n"
+                "You may weigh moderate-strength setups more actively than you would in live trading —\n"
+                "act on directionally reasonable technical alignment even without the clearest possible\n"
+                "confirmation, as long as you still provide a genuine, well-placed stop-loss and\n"
+                "take-profit and state your true confidence honestly.\n"
+                "Do not fabricate confidence or invent a rationale that isn't supported by the data — if\n"
+                "a setup genuinely looks bad or contradictory, the correct call is still hold. This\n"
+                "guidance widens what counts as \"good enough to act on,\" it does not change what \"good\"\n"
+                "means."
+            )
+            
         provider = config.get("signal_provider", "gemini")
         if provider == "claude":
             raw_output = generate_signal(
                 signal_input=signal_input,
                 model=config.get("model", "claude-haiku-4-5-20251001"),
                 max_tokens=config.get("max_tokens", 512),
+                system_prompt=effective_system_prompt,
             )
         elif provider == "gemini":
             raw_output = generate_signal_gemini(
                 signal_input=signal_input,
                 model=config.get("gemini_model", "gemini-3.7-flash"),
                 max_tokens=config.get("max_tokens", 512),
+                system_prompt=effective_system_prompt,
             )
         else:
             logger.error("Unknown signal provider: %s", provider)

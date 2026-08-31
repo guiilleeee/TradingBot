@@ -42,6 +42,7 @@ def generate_signal(
     model: str = "gemini-2.5-flash",
     max_tokens: int = 512,
     client: Optional[genai.Client] = None,
+    system_prompt: str = SYSTEM_PROMPT,
 ) -> SignalOutput:
     """
     Send signal_input to Gemini and return a validated SignalOutput.
@@ -64,7 +65,7 @@ def generate_signal(
             model=model,
             contents=user_message,
             config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
+                system_instruction=system_prompt,
                 temperature=0.2,
                 max_output_tokens=max_tokens,
                 response_mime_type="application/json",
@@ -74,6 +75,8 @@ def generate_signal(
         logger.error("Gemini API error: %s", e)
         raise
 
+    if not response.text:
+        raise ValueError(f"Model returned empty or null output for {signal_input.symbol}.")
     raw_text = response.text.strip()
     logger.debug("Raw model response:\n%s", raw_text)
 
