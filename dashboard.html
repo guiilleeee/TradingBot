@@ -339,15 +339,11 @@
             position: relative;
             overflow: hidden;
         }
-        .row-override::before {
-            content: '';
-            position: absolute;
-            left: 0; top: 0; bottom: 0; width: 3px;
-            background: var(--warning);
-            z-index: 10;
+        .row-override td:first-child {
+            box-shadow: inset 3px 0 0 0 var(--warning);
         }
         /* Override Glow Sweep */
-        .row-override::after {
+        .row-override td::after {
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -478,7 +474,12 @@
             </div>
         </div>
         
-        <div class="greeting display-font" id="greetingTitle" style="font-size: 2rem; margin-bottom: 0.5rem; display: none;">Bon dia</div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-bottom: 0.5rem;">
+            <div class="greeting display-font" id="greetingTitle" style="font-size: 2rem; display: none;">Bon dia</div>
+            <div class="countdown-wrap" style="color: var(--text-muted); font-size: 0.9rem; font-family: 'JetBrains Mono', monospace; text-align: right; margin-top: 0.5rem;">
+                Pròxima anàlisi en: <span id="nextRunTimer" style="color: var(--accent-cyan); font-weight: bold;">--:--:--</span><span style="font-size: 0.75rem; vertical-align: super; color: var(--text-muted);" title="Aproximat (Github Actions pot tenir un lleuger retard)">~</span>
+            </div>
+        </div>
         <div class="summary-card" id="summaryCard" style="background: rgba(92, 225, 230, 0.05); border: 1px solid var(--hairline); border-radius: 8px; padding: 1rem; margin-bottom: 2rem; color: var(--text-primary); font-size: 0.95rem; display: none;">
             Carregant el resum d'avui...
         </div>
@@ -571,6 +572,23 @@
         function updateClocks() {
             const now = new Date();
             
+            // Countdown logic
+            const currentUtcHour = now.getUTCHours();
+            const nextRunHour = Math.floor(currentUtcHour / 4) * 4 + 4;
+            const nextRun = new Date(now);
+            nextRun.setUTCHours(nextRunHour, 0, 0, 0);
+            
+            const diffMs = nextRun - now;
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            const diffSecs = Math.floor((diffMs % (1000 * 60)) / 1000);
+            
+            const pad = (n) => n.toString().padStart(2, '0');
+            const countdownEl = document.getElementById('nextRunTimer');
+            if (countdownEl) {
+                countdownEl.innerText = `${pad(diffHours)}:${pad(diffMins)}:${pad(diffSecs)}`;
+            }
+
             function setMarketClock(idTime, idBadge, timeZone, openH, openM, closeH, closeM, isCrypto=false) {
                 const timeStr = now.toLocaleTimeString('en-US', { timeZone, hour12: false });
                 document.getElementById(idTime).innerText = timeStr;
@@ -728,6 +746,7 @@
                         try { r.signal_input_data = JSON.parse(r.signal_input || '{}'); } catch(e){}
                         try { r.raw_output_data = JSON.parse(r.raw_output || '{}'); } catch(e){}
                         try { r.final_signal_data = JSON.parse(r.final_signal || '{}'); } catch(e){}
+                        try { r.execution_result_data = JSON.parse(r.execution_result || '{}'); } catch(e){}
                     } else {
                         // Sample CSV format
                         r.signal_input_data = {
@@ -741,6 +760,7 @@
                             position_size_pct: parseFloat(r.position_size_pct || 0),
                             reasoning: r.reasoning
                         };
+                        try { r.execution_result_data = JSON.parse(r.execution_result || '{}'); } catch(e){}
                     }
                 });
 
@@ -1008,6 +1028,17 @@
                 if (fs.action === 'buy') actionColor = 'text-gain';
                 if (fs.action === 'sell') actionColor = 'text-loss';
 
+                let finalActionStr = fs.action.toUpperCase();
+                if (r.execution_result_data && r.execution_result_data.status === 'skipped') {
+                    let reasonText = r.execution_result_data.message || 'mida mínima';
+                    if (reasonText.includes('minimum order size')) reasonText = 'mida mínima';
+                    else if (reasonText.includes('Insufficient buying power')) reasonText = 'poder de compra insuf.';
+                    finalActionStr += ` <span style="font-size:0.75rem; font-weight:normal; opacity:0.7;">&rarr; saltada (${reasonText})</span>`;
+                    actionColor = 'text-muted';
+                } else if (r.execution_result_data && r.execution_result_data.status === 'dry_run') {
+                    finalActionStr += ` <span style="font-size:0.75rem; font-weight:normal; color:var(--accent-cyan);">&rarr; simulada</span>`;
+                }
+
                 let sizeDisplay = '-';
                 if (fs.position_size_pct) {
                     sizeDisplay = fs.position_size_pct.toFixed(1) + '%';
@@ -1023,7 +1054,7 @@
                     <td data-label="Hora" class="text-muted" style="font-size:0.8rem">${ts}</td>
                     <td data-label="Símbol" style="color:var(--accent-violet); font-weight:bold;">${r.symbol}</td>
                     <td data-label="Acció del model" class="text-muted">${fs.raw_action || '-'}</td>
-                    <td data-label="Acció final" class="${actionColor}" style="font-weight:bold">${fs.action.toUpperCase()}</td>
+                    <td data-label="Acció final" class="${actionColor}" style="font-weight:bold">${finalActionStr}</td>
                     <td data-label="Mida %">${sizeDisplay}</td>
                     <td data-label="Raonament" 
                         style="font-family:'Inter',sans-serif; font-size:0.875rem; max-width:300px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer;" 

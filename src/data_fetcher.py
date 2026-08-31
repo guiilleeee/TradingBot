@@ -38,8 +38,8 @@ def _compute_rsi(series: pd.Series, period: int = 14) -> float:
     loss = -delta.clip(upper=0)
 
     # Initial averages (simple mean for the seed)
-    avg_gain = gain.iloc[:period].mean()
-    avg_loss = loss.iloc[:period].mean()
+    avg_gain = gain.head(period).mean()
+    avg_loss = loss.head(period).mean()
 
     # Wilder smoothing over remaining bars
     for i in range(period, len(gain)):
@@ -112,7 +112,7 @@ def fetch_headlines(symbol: str, max_headlines: int = 6) -> list[str]:
 
     try:
         feed = feedparser.parse(url)
-        titles = [entry.get("title", "") for entry in feed.entries[:max_headlines]]
+        titles = [str(entry.get("title", "")) for entry in feed.entries[:max_headlines]]
         titles = [t for t in titles if t]
         logger.debug("Fetched %d headlines for %s", len(titles), symbol)
         return titles
