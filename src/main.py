@@ -195,6 +195,7 @@ def main() -> None:
 
     # Pre-cycle sweep for simulated stop-loss/take-profit
     if not is_live:
+        unrealized_pnl = 0.0
         for pos in bot_logger.get_all_simulated_positions():
             sym = pos["symbol"]
             try:
@@ -220,6 +221,11 @@ def main() -> None:
                 bot_logger.log_auto_close_signal(sym, reason, curr_price, pos["qty"], pnl, equity)
                 
                 auto_closed_symbols.add(sym)
+            else:
+                # Position stays open, accumulate unrealized P&L
+                unrealized_pnl += (curr_price - pos["avg_entry_price"]) * pos["qty"]
+        
+        equity += unrealized_pnl
 
     logger.info("Starting signal cycle for %d symbols...", len(symbols_to_run))
     for sym_data in symbols_to_run:
